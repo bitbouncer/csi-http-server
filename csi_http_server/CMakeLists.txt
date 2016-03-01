@@ -3,7 +3,6 @@ SET(LIB_SRCS
     utils/uri_pattern.cpp
 	connection.h
 	connection.cpp
-	header.h
 	reply.h
 	reply.cpp
 	request.h

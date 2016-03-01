@@ -45,94 +45,90 @@
 
 
 
-namespace csi
-{
-    namespace http
-    {
-        //class connection;
+namespace csi {
+  namespace http {
+    //class connection;
 
-        template<class connection_type>
-        class server : private boost::noncopyable
+    template<class connection_type>
+    class server : private boost::noncopyable {
+    protected:
+      server() {}
+    public:
+      typedef boost::function <void(const std::vector<std::string>&, std::shared_ptr<connection_type>)> handler;
+
+      void add_handler(const std::string& pattern, handler p)
+      {
+        _handlers2.emplace_back(std::make_shared<handler_data>(pattern, p));
+      }
+
+      /// Handle a request and produce a reply.
+      void handle_request(std::shared_ptr<connection_type> connection)
+      {
+        const std::string& url = connection->request().url();
+        std::vector<std::string> parts;
+        boost::split(parts, url, boost::is_any_of("/"));
+
+        for (typename std::vector<std::shared_ptr<handler_data>>::const_iterator i = _handlers2.begin(); i != _handlers2.end(); ++i)
         {
-        protected:
-            server() {}
-        public:
-            typedef boost::function <void(const std::vector<std::string>&, std::shared_ptr<connection_type>)> handler;
-            
-            void add_handler(const std::string& pattern, handler p) 
-            { 
-                _handlers2.emplace_back(std::make_shared<handler_data>(pattern, p)); 
-            }
+          if ((*i)->match(parts))
+          {
+            (*i)->call(parts, connection);
+            return;
+          }
+        }
+        connection->reply().create(csi::http::not_found);
+      }
 
-            /// Handle a request and produce a reply.
-            void handle_request(std::shared_ptr<connection_type> connection)
-            {
-                const std::string& url = connection->request().url();
-                std::vector<std::string> parts;
-                boost::split(parts, url, boost::is_any_of("/"));
+      uint64_t get_no_of_requests(const std::string& pattern = "#") const
+      {
+        std::vector<std::string> parts;
+        boost::split(parts, pattern, boost::is_any_of("/"));
 
-                for (typename std::vector<std::shared_ptr<handler_data>>::const_iterator i = _handlers2.begin(); i != _handlers2.end(); ++i)
-                {
-                    if ((*i)->match(parts))
-                    {
-                        (*i)->call(parts, connection);
-                        return;
-                    }
-                }
-                connection->reply().create(csi::http::not_found);
-            }
-
-            uint64_t get_no_of_requests(const std::string& pattern = "#") const
-            {
-                std::vector<std::string> parts;
-                boost::split(parts, pattern, boost::is_any_of("/"));
-
-                uint64_t result = 0;
-                for (typename std::vector<std::shared_ptr<handler_data>>::const_iterator i = _handlers2.begin(); i != _handlers2.end(); ++i)
-                {
-                    // now
-                    if ((*i)->match(parts))
-                        result += (*i)->get_no_of_requests();
-                }
-                return result;
-            }
+        uint64_t result = 0;
+        for (typename std::vector<std::shared_ptr<handler_data>>::const_iterator i = _handlers2.begin(); i != _handlers2.end(); ++i)
+        {
+          // now
+          if ((*i)->match(parts))
+            result += (*i)->get_no_of_requests();
+        }
+        return result;
+      }
 
 
-        private:
+    private:
 
-            // better name..
-            class handler_data
-            {
-            public:
-                handler_data(const std::string& pattern, handler h) : _pattern(pattern), _handler(h) {}
+      // better name..
+      class handler_data {
+      public:
+        handler_data(const std::string& pattern, handler h) : _pattern(pattern), _handler(h) {}
 
-                inline bool match(const std::vector<std::string>& uri) const
-                {
-                    return _pattern.match(uri);
-                }
+        inline bool match(const std::vector<std::string>& uri) const
+        {
+          return _pattern.match(uri);
+        }
 
-                inline void call(const std::vector<std::string>& uri, std::shared_ptr<connection_type> c) const
-                {
-                    csi::spinlock::scoped_lock xx(_spinlock);
-                    ++_nr_of_requests;
-                    _handler(uri, c);
-                }
+        inline void call(const std::vector<std::string>& uri, std::shared_ptr<connection_type> c) const
+        {
+          csi::spinlock::scoped_lock xx(_spinlock);
+          ++_nr_of_requests;
+          _handler(uri, c);
+        }
 
-                uint64_t get_no_of_requests() const { return _nr_of_requests; }
+        uint64_t get_no_of_requests() const { return _nr_of_requests; }
 
-            protected:
-                uri_pattern _pattern;
-                handler     _handler;
+      protected:
+        uri_pattern _pattern;
+        handler     _handler;
 
-                // more metrics
-                mutable csi::spinlock   _spinlock;
-                mutable uint64_t        _nr_of_requests;  // total_calls
-                // calls_per_second
-                // average_call_time;
-                // 99% call time
-            };
+        // more metrics
+        mutable csi::spinlock   _spinlock;
+        mutable uint64_t        _nr_of_requests;  // total_calls
+        // calls_per_second
+        // average_call_time;
+        // 99% call time
+      };
 
-            std::vector<std::shared_ptr<handler_data>> _handlers2;
-        };
+      std::vector<std::shared_ptr<handler_data>> _handlers2;
     };
+  };
 };
