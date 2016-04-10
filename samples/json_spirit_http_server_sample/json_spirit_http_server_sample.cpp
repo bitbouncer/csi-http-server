@@ -26,24 +26,19 @@ struct sample_data_req1 {
   uint64_t        delay;
 };
 
-bool json_decode(const json_spirit::Object& obj, sample_data_req1& sd)
-{
+bool json_decode(const json_spirit::Object& obj, sample_data_req1& sd) {
   sd = sample_data_req1(); // empty it.
-  try
-  {
-    for (size_t i = 0; i != obj.size(); ++i)
-    {
+  try {
+    for(size_t i = 0; i != obj.size(); ++i) {
       const json_spirit::Pair& item = obj[i];
-      if (item.name_ == "email")
+      if(item.name_ == "email")
         sd.email = item.value_.get_str();
-      else if (item.name_ == "phone")
+      else if(item.name_ == "phone")
         sd.phone = item.value_.get_str();
-      else if (item.name_ == "delay")
+      else if(item.name_ == "delay")
         sd.delay = item.value_.get_uint64();
     }
-  }
-  catch (std::exception& e)
-  {
+  } catch(std::exception& e) {
     BOOST_LOG_TRIVIAL(error) << "json_decode(json_spirit::Object, sample_data_req1) exception " << e.what() << std::endl;
     return false;
   }
@@ -51,18 +46,14 @@ bool json_decode(const json_spirit::Object& obj, sample_data_req1& sd)
 }
 
 template<class T>
-bool json_decode_object(std::istrstream& is, T& object)
-{
+bool json_decode_object(std::istrstream& is, T& object) {
   object = T(); // empty it.
-  try
-  {
+  try {
     json_spirit::Value value;
     read(is, value);
     const json_spirit::Object& root = value.get_obj();
     return json_decode(root, object);
-  }
-  catch (std::exception& e)
-  {
+  } catch(std::exception& e) {
     BOOST_LOG_TRIVIAL(error) << "json_decode(std::istream&, " << typeid(T).name() << " exception: " << e.what();
     return false;
   }
@@ -74,15 +65,13 @@ class sample_service {
 public:
   sample_service(boost::asio::io_service& ios) : _ios(ios) {}
   virtual ~sample_service() {}
-  void post(std::shared_ptr<sample_data_req1>& pd, std::shared_ptr<csi::http::connection> context)
-  {
+  void post(std::shared_ptr<sample_data_req1>& pd, std::shared_ptr<csi::http::connection> context) {
     std::shared_ptr<timer> pt(new timer(_ios, boost::chrono::milliseconds(pd->delay)));
     pt->async_wait(boost::bind(&sample_service::_handle_post, this, _1, pt, pd, context));
     context->wait_for_async_reply();
   }
 private:
-  void _handle_post(const boost::system::error_code& ec, std::shared_ptr<timer>&, std::shared_ptr<sample_data_req1>&, std::shared_ptr<csi::http::connection> context)
-  {
+  void _handle_post(const boost::system::error_code& ec, std::shared_ptr<timer>&, std::shared_ptr<sample_data_req1>&, std::shared_ptr<csi::http::connection> context) {
     context->reply().create(csi::http::ok);
     context->notify_async_reply_done();
   }
@@ -95,12 +84,10 @@ public:
   ~sample_request_handler() {}
 
   /// Handle a request and produce a reply.
-  void handle_request(const std::vector<std::string>& url, std::shared_ptr<csi::http::connection> context)
-  {
-    if (context->request().method() == csi::http::POST)
-    {
+  void handle_request(const std::vector<std::string>& url, std::shared_ptr<csi::http::connection> context) {
+    if(context->request().method() == csi::http::POST) {
       std::shared_ptr<sample_data_req1> req1(new sample_data_req1());
-      if (csi::json_spirit_decode(context->request().content(), *req1))
+      if(csi::json_spirit_decode(context->request().content(), *req1))
         _service->post(req1, context);
       else
         context->reply().create(csi::http::bad_request);
@@ -111,8 +98,7 @@ public:
   sample_service* _service;
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
 
   std::string my_address = "127.0.0.1";
@@ -120,21 +106,20 @@ int main(int argc, char** argv)
   int port = 8090;
   int no_of_threads = 4;
 
-  if (argc > 1)
+  if(argc > 1)
     my_address = argv[1];
 
-  if (argc > 3)
+  if(argc > 3)
     no_of_threads = atoi(argv[3]);
 
   size_t last_colon = my_address.find_last_of(':');
 
-  if (last_colon != std::string::npos)
+  if(last_colon != std::string::npos)
     port = atoi(my_address.substr(last_colon + 1).c_str());
 
   my_address = my_address.substr(0, last_colon);
 
-  try
-  {
+  try {
     boost::asio::io_service    ios;
     sample_service             my_service(ios);
     sample_request_handler     my_request_handler(&my_service);
@@ -143,9 +128,7 @@ int main(int argc, char** argv)
       my_request_handler.handle_request(url, c);
     });
     ios.run();
-  }
-  catch (std::exception& e)
-  {
+  } catch(std::exception& e) {
     std::cerr << "exception: " << e.what() << " : exiting";
     return 0;
   }
