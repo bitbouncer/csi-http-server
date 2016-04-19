@@ -30,17 +30,17 @@ namespace csi {
       virtual void notify_async_reply_done() = 0;
 
       inline const request_t& request() const { return _request; }
-      inline reply_t&         reply()         { return _reply; }
+      inline reply_t&         reply() { return _reply; }
       //const std::string&      request_id() const;
-      inline bool             waiting_for_reply() const   { return _waiting_for_async_reply; }
+      inline bool             waiting_for_reply() const { return _waiting_for_async_reply; }
       size_t                  http_parse(const char* at, size_t len);
       static void             init_parser_settings(http_parser_settings* ps);
       inline static size_t    connection_count() { return s_context_count; }
     protected:
       virtual void            send_reply() = 0;
-      inline bool             request_complete() const                 { return _request_complete; }
-      inline bool             keep_alive() const                 { return _keep_alive; }
-      inline bool             upgrade() const                               { return (_parser.upgrade > 0); }
+      inline bool             request_complete() const { return _request_complete; }
+      inline bool             keep_alive() const { return _keep_alive; }
+      inline bool             upgrade() const { return (_parser.upgrade > 0); }
       static int              on_message_begin(http_parser*);
       static int              on_url(http_parser*, const char *at, size_t len);
       static int              on_header_field(http_parser*, const char *at, size_t len);
